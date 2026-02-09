@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-/// 2. DESIGN CONSTANTS
-const Color primaryBlue = Colors.blue;
-const Color secondaryBlue = Color(0xFF4C1D95);
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'button_nav_bar.dart';
 
 /// Data Model for grid buttons
 class ActionItem {
@@ -47,10 +45,32 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    debugPrint('Navigation Item Tapped: $index');
+    //Handle navigation to different pages
+    switch (index) {
+      case 0: // Already on home, just update selects index
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 1: // Nagigation to account page
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 2: // Navigation to qr page (qr_payment.dart)
+        Navigator.pushNamed(context, '/qr_payment');
+        break;
+      case 3: // Navigation to apply page (not created it yet)
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 4: // Navigation to more page (not created it yet)
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+    }
   }
 
   @override
@@ -65,114 +85,283 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: const _HomePageContent(),
 
-      bottomNavigationBar: _builBottomNavigationBar(),
-      floatingActionButton: _buildFloatingActionButton(),
+      bottomNavigationBar: CustomBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
+      ),
+      floatingActionButton: CustomFloatingActionButton(
+        onPressed: () => _onItemTapped(2),
+      ),
+
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
+}
 
-  //Bottom navigation bar
-  Widget _builBottomNavigationBar() {
-    return Container(
-      decoration: const BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x1A000000),
-            blurRadius: 10,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 10,
-        color: Colors.white,
-        elevation: 0,
-        child: SizedBox(
-          height: 65,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, 'Home', 0),
-              _buildNavItem(Icons.wallet, 'Account', 1),
-              const SizedBox(width: 40), // Space for FAB
-              _buildNavItem(Icons.folder, 'Apply', 3),
-              _buildNavItem(Icons.more_horiz, 'More', 4),
-            ],
-          ),
-        ),
-      ),
-    );
+/// 4. PAGE CONTENT LAYOUT (modified for data fetching)
+class _HomePageContent extends StatefulWidget {
+  const _HomePageContent();
+
+  @override
+  State<_HomePageContent> createState() => _HomePageContentState();
+}
+
+class _HomePageContentState extends State<_HomePageContent> {
+  bool _isEnsuringUserDoc = false;
+  String? _firestoreStatusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureUserDocument();
   }
 
-  //Build indivadual navigation items
-  Widget _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _selectedIndex == index;
-    final color = isSelected ? primaryBlue : Colors.grey;
+  String _deriveUserName(User user) {
+    final displayName = user.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
 
-    return InkWell(
-      onTap: () => _onItemTapped(index),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
+    final email = user.email?.trim();
+    if (email != null && email.contains('@')) {
+      return email.split('@').first;
+    }
+
+    return 'User';
+  }
+
+  String? _friendlyFirestoreError(Object error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return 'Firestore permission denied. Ensure the Cloud Firestore API is enabled and security rules allow access.';
+        case 'unavailable':
+          return 'Firestore unavailable. Check your internet connection and ensure the Cloud Firestore API is enabled.';
+      }
+
+      final message = error.message ?? '';
+      if (message.contains('Cloud Firestore API') ||
+          message.contains('firestore.googleapis.com')) {
+        return 'Cloud Firestore is disabled for this Firebase project. Enable it and try again.';
+      }
+    }
+
+    final message = error.toString();
+    if (message.contains('Cloud Firestore API') ||
+        message.contains('firestore.googleapis.com')) {
+      return 'Cloud Firestore is disabled for this Firebase project. Enable it and try again.';
+    }
+
+    return null;
+  }
+
+  Future<void> _ensureUserDocument() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final derivedName = _deriveUserName(user);
+
+    try {
+      final doc = await userRef.get();
+      if (!doc.exists) {
+        if (mounted) {
+          setState(() {
+            _isEnsuringUserDoc = true;
+          });
+        }
+
+        await userRef.set({
+          'uid': user.uid,
+          if (user.email != null) 'email': user.email,
+          'name': derivedName,
+          'account_balance': 0.0,
+          'card_number_suffix': '1234',
+        });
+      } else {
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        final updates = <String, dynamic>{};
+
+        if (!data.containsKey('uid')) {
+          updates['uid'] = user.uid;
+        }
+        if (!data.containsKey('email') && user.email != null) {
+          updates['email'] = user.email;
+        }
+        final existingName = data['name'];
+        final existingNameIsEmpty =
+            existingName is! String || existingName.trim().isEmpty;
+        if ((!data.containsKey('name') || existingNameIsEmpty) &&
+            derivedName.isNotEmpty) {
+          updates['name'] = derivedName;
+        }
+        if (!data.containsKey('card_number_suffix')) {
+          updates['card_number_suffix'] = '1234';
+        }
+
+        if (updates.isNotEmpty) {
+          await userRef.set(updates, SetOptions(merge: true));
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _firestoreStatusMessage = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to ensure Firestore user doc: $e');
+      if (mounted) {
+        setState(() {
+          _firestoreStatusMessage =
+              _friendlyFirestoreError(e) ?? 'Unable to connect to Firestore.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEnsuringUserDoc = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return _buildContent(
+        name: 'Guest',
+        balance: '0.00',
+        cardNumberSuffix: 'XXXX',
+      );
+    }
+
+    // Use StreamBuilder to fetch data in real-time
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        // headle loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 100),
+              child: CircularProgressIndicator(color: primaryBlue),
             ),
-          ],
-        ),
-      ),
+          );
+        }
+
+        final statusMessage = snapshot.hasError
+            ? (_firestoreStatusMessage ??
+                (snapshot.error != null
+                    ? (_friendlyFirestoreError(snapshot.error!) ??
+                        'Unable to connect to Firestore.')
+                    : 'Unable to connect to Firestore.'))
+            : _firestoreStatusMessage;
+
+        // handle error/no data state
+        if (snapshot.hasError) {
+          debugPrint('Firestore Error: ${snapshot.error}');
+          return _buildContent(
+            name: user.displayName ?? _deriveUserName(user),
+            balance: '0.00',
+            cardNumberSuffix: '1234',
+            firestoreStatusMessage: statusMessage,
+          );
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          debugPrint('Document does not exist for UID: ${user.uid}');
+          // Fallback to FirebaseAuth display name if Firestore document is missing
+          return _buildContent(
+            name: user.displayName ?? _deriveUserName(user),
+            balance: '0.00',
+            cardNumberSuffix: '1234',
+            firestoreStatusMessage: _isEnsuringUserDoc
+                ? 'Setting up your account...'
+                : statusMessage,
+          );
+        }
+
+        // Extract data safely when available
+        final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        // Default to a safe value if the field is missing
+        final name = userData['name'] ?? user.displayName ?? 'User';
+        // Format balance to 2 decimal places, default is '0.00'
+        final balance = (userData['account_balance'] is num)
+            ? (userData['account_balance'] as num).toStringAsFixed(2)
+            : '0.00';
+        final cardNumberSuffix =
+            userData['card_number_suffix']?.toString() ?? '1234';
+
+        // Build content, passing dynamic data
+        return _buildContent(
+          name: name,
+          balance: balance,
+          cardNumberSuffix: cardNumberSuffix,
+          firestoreStatusMessage: statusMessage,
+        );
+      },
     );
   }
 
-  //Floating Action Button
-  Widget _buildFloatingActionButton() {
-    return Container(
-      width: 65,
-      height: 65,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [primaryBlue, secondaryBlue],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(color: secondaryBlue, blurRadius: 10, offset: Offset(0, 4)),
+  // Helper method to build the main scrollable content
+  Widget _buildContent({
+    required String name,
+    required String balance,
+    required String cardNumberSuffix,
+    String? firestoreStatusMessage,
+  }) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          //Pass dynamic data to children
+          HeaderSection(name: name),
+          if (firestoreStatusMessage != null) _FirestoreStatusBanner(message: firestoreStatusMessage),
+          BankCardWidget(
+            name: name,
+            balance: balance,
+            cardNumberSuffix: cardNumberSuffix,
+          ),
+          ActionGridSection(),
+          TransactionHistorySection(),
         ],
-      ),
-      child: FloatingActionButton(
-        onPressed: () => _onItemTapped(2),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: const Icon(Icons.qr_code_scanner, color: Colors.white, size: 28),
       ),
     );
   }
 }
 
-/// 4. PAGE CONTENT LAYOUT
-class _HomePageContent extends StatelessWidget {
-  const _HomePageContent({super.key});
+class _FirestoreStatusBanner extends StatelessWidget {
+  final String message;
+
+  const _FirestoreStatusBanner({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    return const SingleChildScrollView(
-      child: Column(
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          HeaderSection(),
-          BankCardWidget(),
-          ActionGridSection(),
-          TransactionHistorySection(),
+          Icon(Icons.warning_amber_rounded, color: Colors.red[700], size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: Colors.red[800], fontSize: 13),
+            ),
+          ),
         ],
       ),
     );
@@ -182,7 +371,8 @@ class _HomePageContent extends StatelessWidget {
 ///5. HEADER SECTION
 //  Top section gradient background and greeting
 class HeaderSection extends StatelessWidget {
-  const HeaderSection({super.key});
+  final String name; //new paramater for dynamic data
+  const HeaderSection({super.key, required this.name}); // Updated constructor
 
   @override
   Widget build(BuildContext context) {
@@ -278,14 +468,14 @@ class HeaderSection extends StatelessWidget {
         const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Good morning,',
               style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
             Text(
-              'Mr ALex',
-              style: TextStyle(
+              name,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -300,7 +490,16 @@ class HeaderSection extends StatelessWidget {
 
 ///6. BANK CARD WIDGET
 class BankCardWidget extends StatelessWidget {
-  const BankCardWidget({super.key});
+  final String name;
+  final String balance;
+  final String cardNumberSuffix;
+
+  const BankCardWidget({
+    super.key,
+    required this.name,
+    required this.balance,
+    required this.cardNumberSuffix,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +529,7 @@ class BankCardWidget extends StatelessWidget {
           _buildCardTop(),
           _buildBalanceDisplay(),
           _buildCardNumber(),
-          _buildCartDetail(),
+          _buildCardDetail(),
         ],
       ),
     );
@@ -371,7 +570,7 @@ class BankCardWidget extends StatelessWidget {
         ),
         SizedBox(height: 4),
         Text(
-          '\$1,234,50',
+          '\$$balance',
           style: TextStyle(
             color: Colors.white,
             fontSize: 28,
@@ -383,8 +582,8 @@ class BankCardWidget extends StatelessWidget {
   }
 
   Widget _buildCardNumber() {
-    return const Text(
-      '**** **** **** 1234',
+    return Text(
+      '**** **** **** $cardNumberSuffix',
       style: TextStyle(
         color: Colors.white,
         fontSize: 18,
@@ -394,19 +593,19 @@ class BankCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildCartDetail() {
+  Widget _buildCardDetail() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Card Holder',
               style: TextStyle(color: Colors.white70, fontSize: 12),
             ),
             Text(
-              'Alex',
+              name.toUpperCase(),
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 16,
@@ -582,7 +781,7 @@ class TransactionRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          //_builtIconPlaceholder(),
+          //_buildIconPlaceholder(),
           const SizedBox(width: 15),
           _buildDetailsPlaceholder(),
           const SkeletonContainer(width: 70, height: 16, radius: 4),
@@ -593,7 +792,7 @@ class TransactionRow extends StatelessWidget {
 }
 
 // Transaction icon placeholder
-Widget _builtIconPlaceholder() {
+Widget _buildIconPlaceholder() {
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -612,7 +811,7 @@ Widget _builtIconPlaceholder() {
   );
 }
 
-//Transaction details placehoder(title & category)
+//Transaction details placeholder(title & category)
 Widget _buildDetailsPlaceholder() {
   return Expanded(
     child: Column(

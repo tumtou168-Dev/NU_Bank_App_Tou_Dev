@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 const Color primaryBlue = Color(0xFF1E3A8A);
 const Color secondaryBlue = Color(0xFF4C1D95);
@@ -55,10 +56,12 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _showSuccessSnackbar(String message) {
-    SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.green,
-      behavior: SnackBarBehavior.floating,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -67,36 +70,56 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
+    // Capture values early to avoid using disposed controllers after async calls
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final name = _nameController.text.trim();
+
     setState(() {
       isLoading = true;
     });
 
     try {
-      if (isLoading) {
+      if (isLogin) {
         // Login with email and password
         await _auth.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+          email: email,
+          password: password,
         );
+        if (!mounted) return;
         _showSuccessSnackbar('Welcome back!');
       } else {
         // Sign up with email and password
         UserCredential userCredential = await _auth
-            .createUserWithEmailAndPassword(
-              email: _emailController.text.trim(),
-              password: _passwordController.text,
-            );
+            .createUserWithEmailAndPassword(email: email, password: password);
 
         // Update display name
-        await userCredential.user?.updateDisplayName(
-          _nameController.text.trim(),
-        );
+        await userCredential.user?.updateDisplayName(name);
+
+        // Save user details to Firestore
+        if (userCredential.user != null) {
+          // Get a reference to the 'users' collection
+          final userRef = FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid);
+
+          // Data to save for the new user
+          await userRef.set({
+            'uid': userCredential.user!.uid,
+            'email': email,
+            'name': name, // Stored from the sign up form
+            'account_balance': 0.0, //Default initial balance
+            'card_number_suffix': '1234', //Default for display on home screen
+          });
+        }
+
+        if (!mounted) return;
         _showSuccessSnackbar('Account created successfully!');
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
-        case 'weak-passwork':
+        case 'weak-password':
           errorMessage = 'The password provided is too weak.';
           break;
         case 'email-already-in-use':
@@ -111,11 +134,11 @@ class _AuthScreenState extends State<AuthScreen> {
         case 'invalid-email':
           errorMessage = 'The email address is invalid.';
           break;
-        case 'user-disable':
+        case 'user-disabled':
           errorMessage = 'This user account has been disabled.';
           break;
         case 'too-many-requests':
-          errorMessage = 'Too many attempts. Please try again latter.';
+          errorMessage = 'Too many attempts. Please try again later.';
           break;
         case 'operation-not-allowed':
           errorMessage = 'Email/password accounts are not enabled.';
@@ -124,6 +147,9 @@ class _AuthScreenState extends State<AuthScreen> {
           errorMessage = e.message ?? 'An error occurred. Please try again.';
       }
       _showErrorDialog(errorMessage);
+    } on FirebaseException catch (e) {
+      // Catch Firestore specific errors (like permission denied)
+      _showErrorDialog('Database Error: ${e.message}');
     } catch (e) {
       _showErrorDialog('An unexpected error occurred. Please try again.');
     } finally {
@@ -144,25 +170,25 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     try {
       await _auth.sendPasswordResetEmail(email: email);
-      _showSuccessSnackbar('Please reset email sent! Check your inbox.');
+      _showSuccessSnackbar('Password reset email sent! Check your inbox.');
     } on FirebaseAuthException catch (e) {
       String errorMessage;
       switch (e.code) {
         case 'invalid-email':
-          errorMessage = 'No user found with this email.';
+          errorMessage = 'Invalid email address.';
           break;
         case 'user-not-found':
           errorMessage = 'No user found with this email.';
           break;
         default:
-          errorMessage = e.message ?? 'Failed to sent password reset email.';
+          errorMessage = e.message ?? 'Failed to send password reset email.';
       }
       _showErrorDialog(errorMessage);
     }
   }
 
   @override
-  Widget build(BuildContext) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -325,7 +351,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 24),
             _buildSubmitButton(),
             const SizedBox(height: 20),
-            _bulidToggleAuthMode(),
+            _buildToggleAuthMode(),
           ],
         ),
       ),
@@ -408,7 +434,7 @@ class _AuthScreenState extends State<AuthScreen> {
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadiusGeometry.circular(12),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: isLoading
@@ -421,7 +447,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               )
             : Text(
-                isLoading ? 'Sign In' : 'Sign Up',
+                isLogin ? 'Sign In' : 'Sign Up',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -432,18 +458,18 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _bulidToggleAuthMode() {
+  Widget _buildToggleAuthMode() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          isLoading ? "Don't have an account? " : "Already have an account?",
+          isLogin ? "Don't have an account? " : "Already have an account?",
           style: TextStyle(color: Colors.grey[700]),
         ),
         TextButton(
           onPressed: _toggleAuthMode,
           child: Text(
-            isLoading ? 'Sign up' : 'Sign in',
+            isLogin ? 'Sign up' : 'Sign in',
             style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
           ),
         ),

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "574932336319",
-    "project_id": "bank-app-tumtou-dev-168",
-    "storage_bucket": "bank-app-tumtou-dev-168.firebasestorage.app"
+    "project_number": "693225974571",
+    "project_id": "bank-app-tumtou-168",
+    "storage_bucket": "bank-app-tumtou-168.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:574932336319:android:81fb72fcae508d43ed900a",
+        "mobilesdk_app_id": "1:693225974571:android:ae74e0f805d9e963ad336e",
         "android_client_info": {
           "package_name": "com.example.bank_app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAEScq1fZu6ENNrc1GsGu5owAafX_E8OVE"
+          "current_key": "AIzaSyDGGfOo5ebQvG9HXzNDGXt-7-WYuKAPi1U"
         }
       ],
       "services": {

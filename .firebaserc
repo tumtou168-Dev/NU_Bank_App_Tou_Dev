@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "dev": "bank-app-tumtou-dev-168",
+    "bank": "bank-app-tumtou-168"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -41,29 +41,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyB0H_GvgT6PJ7B1EM2e9nKCbmVhN-MPMcw',
-    appId: '1:574932336319:web:33025193de2d22e5ed900a',
-    messagingSenderId: '574932336319',
-    projectId: 'bank-app-tumtou-dev-168',
-    authDomain: 'bank-app-tumtou-dev-168.firebaseapp.com',
-    storageBucket: 'bank-app-tumtou-dev-168.firebasestorage.app',
-    measurementId: 'G-0GC8GYC0XN',
+    apiKey: 'AIzaSyBzoG8aNNqVoLQc6hO_-iMjxtwQc4PzeeQ',
+    appId: '1:693225974571:web:e26e6a4badda4c93ad336e',
+    messagingSenderId: '693225974571',
+    projectId: 'bank-app-tumtou-168',
+    authDomain: 'bank-app-tumtou-168.firebaseapp.com',
+    storageBucket: 'bank-app-tumtou-168.firebasestorage.app',
+    measurementId: 'G-C85J2V4K1M',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAEScq1fZu6ENNrc1GsGu5owAafX_E8OVE',
-    appId: '1:574932336319:android:81fb72fcae508d43ed900a',
-    messagingSenderId: '574932336319',
-    projectId: 'bank-app-tumtou-dev-168',
-    storageBucket: 'bank-app-tumtou-dev-168.firebasestorage.app',
+    apiKey: 'AIzaSyDGGfOo5ebQvG9HXzNDGXt-7-WYuKAPi1U',
+    appId: '1:693225974571:android:ae74e0f805d9e963ad336e',
+    messagingSenderId: '693225974571',
+    projectId: 'bank-app-tumtou-168',
+    storageBucket: 'bank-app-tumtou-168.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCSH_NzO4AV4Y6lLQrC5do39ufvdYK0o60',
-    appId: '1:574932336319:ios:e68c7432c6633fb8ed900a',
-    messagingSenderId: '574932336319',
-    projectId: 'bank-app-tumtou-dev-168',
-    storageBucket: 'bank-app-tumtou-dev-168.firebasestorage.app',
+    apiKey: 'AIzaSyBn4zCvNgbGf4h-fXQkebt9f1T5bScVxNk',
+    appId: '1:693225974571:ios:99a3f98d8c43fd46ad336e',
+    messagingSenderId: '693225974571',
+    projectId: 'bank-app-tumtou-168',
+    storageBucket: 'bank-app-tumtou-168.firebasestorage.app',
     iosBundleId: 'com.example.bankApp',
   );
 
@@ -73,6 +73,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '574932336319',
     projectId: 'bank-app-tumtou-dev-168',
     storageBucket: 'bank-app-tumtou-dev-168.firebasestorage.app',
+    iosClientId:
+        '574932336319-1klft763s8go1tntsds8q1drtul1rmme.apps.googleusercontent.com',
     iosBundleId: 'com.example.bankApp',
   );
 
@@ -85,5 +87,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'bank-app-tumtou-dev-168.firebasestorage.app',
     measurementId: 'G-K399QBPV24',
   );
-
 }

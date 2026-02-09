@@ -4,11 +4,21 @@ import 'home_screen.dart';
 import 'auth_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'qr_payment.dart';
 
 /// 1. APP ENTRY POINT
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint(
+      'Connected to Firebase Project: ${DefaultFirebaseOptions.currentPlatform.projectId}',
+    );
+  } catch (e) {
+    debugPrint('Firebase Initialization Failed: $e');
+  }
   runApp(const MyApp());
 }
 
@@ -21,18 +31,23 @@ class MyApp extends StatelessWidget {
       title: 'Banking App UI',
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Roboto'),
       debugShowCheckedModeBanner: false,
-
       home: const AuthWrapper(),
+
+      // add named routes here
+      routes: {
+        '/home': (context) => const MyHomePage(),
+        '/qr_payment': (context) => const QrPaymentPage(),
+      },
     );
   }
 }
 
-// Wrapper to headle authentication state
+// Wrapper to handle authentication state
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext) {
+  Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -42,7 +57,7 @@ class AuthWrapper extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        //if user is loagged in, show home scrren
+        //if user is logged in, show home screen
         if (snapshot.hasData && snapshot.data != null) {
           return const MyHomePage();
         }
