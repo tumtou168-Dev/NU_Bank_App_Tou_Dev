@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'button_nav_bar.dart';
 
+const Color primaryBlue = Color(0xFF1E3A8A);
+const Color secondaryBlue = Color(0xFF4C1D95);
+
 /// Data Model for grid buttons
 class ActionItem {
   final IconData icon;
@@ -45,31 +48,16 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
-    //Handle navigation to different pages
-    switch (index) {
-      case 0: // Already on home, just update selects index
+    if (index == 2) {
+      // Special case for QR payment screen
+      Navigator.pushNamed(context, '/qr_payment');
+    } else {
+      // Handle navigation for other bottom bar items
+      if (_selectedIndex != index) {
         setState(() {
           _selectedIndex = index;
         });
-        break;
-      case 1: // Nagigation to account page
-        setState(() {
-          _selectedIndex = index;
-        });
-        break;
-      case 2: // Navigation to qr page (qr_payment.dart)
-        Navigator.pushNamed(context, '/qr_payment');
-        break;
-      case 3: // Navigation to apply page (not created it yet)
-        setState(() {
-          _selectedIndex = index;
-        });
-        break;
-      case 4: // Navigation to more page (not created it yet)
-        setState(() {
-          _selectedIndex = index;
-        });
-        break;
+      }
     }
   }
 
@@ -159,7 +147,9 @@ class _HomePageContentState extends State<_HomePageContent> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
     final derivedName = _deriveUserName(user);
 
     try {
@@ -257,10 +247,10 @@ class _HomePageContentState extends State<_HomePageContent> {
 
         final statusMessage = snapshot.hasError
             ? (_firestoreStatusMessage ??
-                (snapshot.error != null
-                    ? (_friendlyFirestoreError(snapshot.error!) ??
-                        'Unable to connect to Firestore.')
-                    : 'Unable to connect to Firestore.'))
+                  (snapshot.error != null
+                      ? (_friendlyFirestoreError(snapshot.error!) ??
+                            'Unable to connect to Firestore.')
+                      : 'Unable to connect to Firestore.'))
             : _firestoreStatusMessage;
 
         // handle error/no data state
@@ -321,7 +311,8 @@ class _HomePageContentState extends State<_HomePageContent> {
         children: [
           //Pass dynamic data to children
           HeaderSection(name: name),
-          if (firestoreStatusMessage != null) _FirestoreStatusBanner(message: firestoreStatusMessage),
+          if (firestoreStatusMessage != null)
+            _FirestoreStatusBanner(message: firestoreStatusMessage),
           BankCardWidget(
             name: name,
             balance: balance,
@@ -412,17 +403,11 @@ class HeaderSection extends StatelessWidget {
       children: [
         const Text(
           'ABC Bank',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         Row(
           children: [
             _buildCircleIcon(Icons.chat_bubble_outline),
-            const SizedBox(width: 8),
-            _buildCircleIcon(Icons.notifications_none),
             const SizedBox(width: 8),
             _buildCircleIconWithAction(Icons.logout, () async {
               await FirebaseAuth.instance.signOut();
@@ -433,15 +418,18 @@ class HeaderSection extends StatelessWidget {
     );
   }
 
-  // Circular icon button
-  Widget _buildCircleIcon(IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withOpacity(0.3),
+  // Circular icon button with action
+  Widget _buildCircleIcon(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withOpacity(0.2),
+        ),
+        padding: const EdgeInsets.all(8),
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
-      padding: const EdgeInsets.all(8),
-      child: Icon(icon, color: Colors.white, size: 20),
     );
   }
 
@@ -452,7 +440,7 @@ class HeaderSection extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.3),
+          color: Colors.white.withOpacity(0.2),
         ),
         padding: const EdgeInsets.all(8),
         child: Icon(icon, color: Colors.white, size: 20),
@@ -727,61 +715,243 @@ class ActionButton extends StatelessWidget {
 class TransactionHistorySection extends StatelessWidget {
   const TransactionHistorySection({super.key});
 
+  Stream<QuerySnapshot> _getTransactionsStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('transactions')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .limit(5)
+        .snapshots();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Don't show transaction history if user is not logged in
+      return const SizedBox.shrink();
+    }
+
     return Container(
       color: Colors.white,
       margin: const EdgeInsets.only(top: 4),
       child: Column(
         children: [
-          _buildSectionHeader(),
+          _buildSectionHeader(context),
           const SizedBox(height: 10),
-          Column(children: List.generate(5, (index) => const TransactionRow())),
+          StreamBuilder<QuerySnapshot>(
+            stream: _getTransactionsStream(user.uid),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Column(
+                  children: List.generate(3, (index) => const _TransactionRowSkeleton()),
+                );
+              }
+              if (snapshot.hasError) {
+                debugPrint('Transaction error: ${snapshot.error}');
+                return Container(
+                  padding: const EdgeInsetsGeometry.all(20),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.red[300],
+                        size: 40,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Error loading transactions',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${snapshot.error}',
+                        style: TextStyle(color: Colors.grey[300], fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Container(
+                  padding: const EdgeInsetsGeometry.all(30),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        size: 50,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(
+                        height: 10,
+                      ),
+                      Text(
+                        'No transactions yet',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 16,
+                        ),
+                      )
+                    ],
+                  ),
+                );
+              }
+              final transactions = snapshot.data!.docs;
+
+              return Column(
+                children: transactions.take(5).map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return TransactionRow(
+                    type: data['type'] ?? 'debit',
+                    description: data['description'] ?? 'Transaction',
+                    category: data['category'] ?? 'General',
+                    amount: (data['amount'] ?? 0.0).toDouble(),
+                    timestamp: (data['timestamp'] as Timestamp?) ?? Timestamp.now(),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Section header with See All button
+  Widget _buildSectionHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Transaction History',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/transaction');
+            },
+            child: const Text(
+              'See All',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: primaryBlue,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// Section header with See All button
-Widget _buildSectionHeader() {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      const Text(
-        'Transaction History',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
+
+// Transaction row with real data
+class TransactionRow extends StatelessWidget {
+  final String type;
+  final String description;
+  final String category;
+  final double amount;
+  final Timestamp timestamp;
+
+  const TransactionRow({
+    super.key,
+    required this.type,
+    required this.description,
+    required this.category,
+    required this.amount,
+    required this.timestamp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDebit = type == 'debit';
+    final icon = isDebit ? Icons.arrow_upward : Icons.arrow_downward;
+    final iconColor = isDebit ? Colors.red : Colors.green;
+    final amountText = '${isDebit ? '-' : '+'}\$${amount.toStringAsFixed(2)}';
+    final amountColor = isDebit ? Colors.red : Colors.green;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        children: [
+          _buildIcon(icon, iconColor),
+          const SizedBox(width: 15),
+          _buildDetails(description, category),
+          Text(
+            amountText,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: amountColor,
+            ),
+          )
+        ],
       ),
-      TextButton(
-        onPressed: () {},
-        child: const Text(
-          'See All',
-          style: TextStyle(
+    );
+  }
+
+  Widget _buildIcon(IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Icon(icon, color: color, size: 24),
+    );
+  }
+
+  Widget _buildDetails(String title, String subtitle) {
+    return Expanded(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: primaryBlue,
+            color: Colors.black87,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-      ),
-    ],
-  );
+        const SizedBox(
+          height: 4,
+        ),
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+          ),
+        )
+      ],
+    ));
+  }
 }
 
 // Single Transaction row with skeleton loading effect
-class TransactionRow extends StatelessWidget {
-  const TransactionRow({super.key});
+class _TransactionRowSkeleton extends StatelessWidget {
+  const _TransactionRowSkeleton();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Row(
         children: [
-          //_buildIconPlaceholder(),
+          _buildIconPlaceholder(),
           const SizedBox(width: 15),
           _buildDetailsPlaceholder(),
           const SkeletonContainer(width: 70, height: 16, radius: 4),
@@ -795,19 +965,8 @@ class TransactionRow extends StatelessWidget {
 Widget _buildIconPlaceholder() {
   return Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.grey[200],
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.2),
-          spreadRadius: 1,
-          blurRadius: 3,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    ),
-    // child:  const SkeletonContainer(width: 24, height: 24, radius: 4),
+    decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
+    child: const SkeletonContainer(width: 24, height: 24, radius: 4),
   );
 }
 

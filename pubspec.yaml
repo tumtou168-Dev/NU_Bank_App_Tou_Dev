@@ -17,6 +17,8 @@ dependencies:
   cloud_firestore: ^6.1.0 # real time data base
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.1.4
+  intl: ^0.20.2 
+
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

@@ -2,6 +2,7 @@ import 'package:bank_app/firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'auth_screen.dart';
+import 'transaction_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'qr_payment.dart';
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const MyHomePage(),
         '/qr_payment': (context) => const QrPaymentPage(),
+        '/transaction': (context) => const TransactionPage(),
       },
     );
   }
