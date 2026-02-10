@@ -433,7 +433,9 @@ class _AccountPageContent extends StatelessWidget {
             icon: Icons.security_outlined,
             iconColor: primaryBlue,
             title: 'Security Settings',
-            onTap: () {},
+            onTap: () {
+              Navigator.pushNamed(context, '/security');
+            },
           ),
           _buildDivider(),
           _buildMenuItem(
