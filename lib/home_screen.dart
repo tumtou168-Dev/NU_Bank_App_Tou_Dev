@@ -48,16 +48,33 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
-    if (index == 2) {
-      // Special case for QR payment screen
-      Navigator.pushNamed(context, '/qr_payment');
-    } else {
-      // Handle navigation for other bottom bar items
-      if (_selectedIndex != index) {
+    //Handle navigation to different pages
+    switch (index) {
+      case 0: // Already on home, just update selects index
         setState(() {
           _selectedIndex = index;
         });
-      }
+        break;
+      case 1: // Nagigation to analytics page (not created it yet)
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 2: // Navigation to qr page (qr_payment.dart)
+        Navigator.pushNamed(context, '/qr_payment');
+        break;
+      case 3: // Navigation to card page(not created it yet)
+        setState(() {
+          _selectedIndex = index;
+        });
+        break;
+      case 4: // Navigation to more page (not created it yet)
+        Navigator.pushNamed(context, '/account').then((_) {
+          // When returning from Account to Home, reset the index to 0
+          setState(() {
+            _selectedIndex = 0;
+          });
+        });
     }
   }
 

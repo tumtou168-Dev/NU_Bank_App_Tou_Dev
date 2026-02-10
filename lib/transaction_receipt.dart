@@ -426,10 +426,7 @@ class _TransactionReceiptState extends State<TransactionReceipt> {
           height: 52, // Slightly taller for better touch target
           child: TextButton.icon(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.done_all_rounded,
-              size: 20,
-            ), // More stylish icon
+            icon: const Icon(Icons.done, size: 20), // More stylish icon
             label: const Text(
               'Done',
               style: TextStyle(
