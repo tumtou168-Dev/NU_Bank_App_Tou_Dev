@@ -235,7 +235,7 @@ class _HomePageContentState extends State<_HomePageContent> {
           .doc(user.uid)
           .snapshots(),
       builder: (context, snapshot) {
-        // headle loading state
+        // handle loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: Padding(
@@ -382,7 +382,7 @@ class HeaderSection extends StatelessWidget {
         ),
         // Content Overlay
         Padding(
-          padding: const EdgeInsetsGeometry.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -403,7 +403,11 @@ class HeaderSection extends StatelessWidget {
       children: [
         const Text(
           'ABC Bank',
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         Row(
           children: [
@@ -457,12 +461,12 @@ class HeaderSection extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Good morning,',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+            Text(
+              _getGreeting(),
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
             Text(
-              name,
+              name.toUpperCase(),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -473,6 +477,21 @@ class HeaderSection extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  // For Title Greeting the user.
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    // Morning: 5 AM to 11:59 AM
+    if (hour >= 5 && hour < 12) {
+      return 'Good morning,';
+    }
+    // Afternoon: 12 PM to 5:59 PM
+    if (hour >= 12 && hour < 18) {
+      return 'Good afternoon,';
+    }
+    // Evening: 6 PM onwards
+    return 'Good evening,';
   }
 }
 
@@ -719,8 +738,6 @@ class TransactionHistorySection extends StatelessWidget {
     return FirebaseFirestore.instance
         .collection('transactions')
         .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .limit(5)
         .snapshots();
   }
 
@@ -744,13 +761,16 @@ class TransactionHistorySection extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Column(
-                  children: List.generate(3, (index) => const _TransactionRowSkeleton()),
+                  children: List.generate(
+                    3,
+                    (index) => const _TransactionRowSkeleton(),
+                  ),
                 );
               }
               if (snapshot.hasError) {
                 debugPrint('Transaction error: ${snapshot.error}');
                 return Container(
-                  padding: const EdgeInsetsGeometry.all(20),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
                       Icon(
@@ -766,7 +786,7 @@ class TransactionHistorySection extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         '${snapshot.error}',
-                        style: TextStyle(color: Colors.grey[300], fontSize: 12),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -776,7 +796,7 @@ class TransactionHistorySection extends StatelessWidget {
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return Container(
-                  padding: const EdgeInsetsGeometry.all(30),
+                  padding: const EdgeInsets.all(30),
                   child: Column(
                     children: [
                       Icon(
@@ -784,21 +804,28 @@ class TransactionHistorySection extends StatelessWidget {
                         size: 50,
                         color: Colors.grey[400],
                       ),
-                      const SizedBox(
-                        height: 10,
-                      ),
+                      const SizedBox(height: 10),
                       Text(
                         'No transactions yet',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 16,
-                        ),
-                      )
+                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                      ),
                     ],
                   ),
                 );
               }
-              final transactions = snapshot.data!.docs;
+              final transactions = List.of(snapshot.data!.docs);
+
+              // Sort transactions by timestamp (newest first)
+              transactions.sort((a, b) {
+                final aData = a.data() as Map<String, dynamic>;
+                final bData = b.data() as Map<String, dynamic>;
+                final aTimestamp =
+                    (aData['timestamp'] as Timestamp?) ?? Timestamp.now();
+                final bTimestamp =
+                    (bData['timestamp'] as Timestamp?) ?? Timestamp.now();
+
+                return bTimestamp.compareTo(aTimestamp);
+              });
 
               return Column(
                 children: transactions.take(5).map((doc) {
@@ -808,7 +835,8 @@ class TransactionHistorySection extends StatelessWidget {
                     description: data['description'] ?? 'Transaction',
                     category: data['category'] ?? 'General',
                     amount: (data['amount'] ?? 0.0).toDouble(),
-                    timestamp: (data['timestamp'] as Timestamp?) ?? Timestamp.now(),
+                    timestamp:
+                        (data['timestamp'] as Timestamp?) ?? Timestamp.now(),
                   );
                 }).toList(),
               );
@@ -853,7 +881,6 @@ class TransactionHistorySection extends StatelessWidget {
   }
 }
 
-
 // Transaction row with real data
 class TransactionRow extends StatelessWidget {
   final String type;
@@ -893,7 +920,7 @@ class TransactionRow extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: amountColor,
             ),
-          )
+          ),
         ],
       ),
     );
@@ -913,31 +940,27 @@ class TransactionRow extends StatelessWidget {
 
   Widget _buildDetails(String title, String subtitle) {
     return Expanded(
-        child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(
-          height: 4,
-        ),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
-        )
-      ],
-    ));
+        ],
+      ),
+    );
   }
 }
 
@@ -965,7 +988,10 @@ class _TransactionRowSkeleton extends StatelessWidget {
 Widget _buildIconPlaceholder() {
   return Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(
+      color: Colors.grey[200],
+      borderRadius: BorderRadius.circular(12),
+    ),
     child: const SkeletonContainer(width: 24, height: 24, radius: 4),
   );
 }

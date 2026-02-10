@@ -1,11 +1,11 @@
-import 'package:bank_app/button_nav_bar.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'button_nav_bar.dart';
 import 'dart:convert';
+import 'transaction_receipt.dart';
 
 /// 2. DESIGN CONSTANTS
 const Color primaryBlue = Color(0xFF1E3A8A);
@@ -659,8 +659,24 @@ class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
       );
 
       // Return true to indicate successful
-      Navigator.pop(context, true);
-    } on FirebaseException catch (e) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TransactionReceipt(
+            transactionId: 'TXN${DateTime.now().millisecondsSinceEpoch}_sender',
+            type: 'debit',
+            description: 'QR Payment to ${widget.receiverUserName}',
+            category: 'QR Payment',
+            amount: amount,
+            timestamp: Timestamp.now(),
+            note: _noteController.text.isNotEmpty ? _noteController.text : null,
+            recipient: widget.receiverUserName,
+          ),
+        ),
+      );
+    }
+    
+    on FirebaseException catch (e) {
       setState(() {
         _isLoading = false;
       });

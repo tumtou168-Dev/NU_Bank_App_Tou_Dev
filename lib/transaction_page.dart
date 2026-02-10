@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'transaction_receipt.dart';
 
 const Color primaryBlue = Color(0xFF1E3A8A);
 const Color secondaryBlue = Color(0xFF4C1D95);
@@ -19,8 +20,7 @@ class _TransactionPageState extends State<TransactionPage> {
   Stream<QuerySnapshot> _getTransactionsStream(String userId) {
     Query query = FirebaseFirestore.instance
         .collection('transactions')
-        .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true);
+        .where('userId', isEqualTo: userId);
 
     // Apply filter if not all
     if (_filterType != 'all') {
@@ -86,6 +86,18 @@ class _TransactionPageState extends State<TransactionPage> {
                             fontSize: 16,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            '${snapshot.error}',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -121,25 +133,25 @@ class _TransactionPageState extends State<TransactionPage> {
                   );
                 }
 
-                final transactions = snapshot.data!.docs;
+                final transactions = List.of(snapshot.data!.docs);
 
-                // sort transactions by timestamp (newest first)
+                // Sort transactions by timestamp (newest first)
                 transactions.sort((a, b) {
                   final aData = a.data() as Map<String, dynamic>;
                   final bData = b.data() as Map<String, dynamic>;
-                  final aTimestamp = aData['timestamp'] as Timestamp?;
-                  final bTimestamp = bData['timestamp'] as Timestamp?;
-
-                  if (aTimestamp == null) return 1;
-                  if (bTimestamp == null) return -1;
+                  final aTimestamp =
+                      (aData['timestamp'] as Timestamp?) ?? Timestamp.now();
+                  final bTimestamp =
+                      (bData['timestamp'] as Timestamp?) ?? Timestamp.now();
 
                   return bTimestamp.compareTo(aTimestamp);
                 });
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: transactions.length,
-                  itemBuilder: (context, indeX) {
-                    final doc = transactions[indeX];
+                  itemBuilder: (context, index) {
+                    final doc = transactions[index];
                     final data = doc.data() as Map<String, dynamic>;
 
                     return TransactionCard(
@@ -192,11 +204,13 @@ class _TransactionPageState extends State<TransactionPage> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? primaryBlue : Colors.white,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? Colors.transparent : Colors.grey[300]!,
             width: 1.5,
           ),
         ),
+        alignment: Alignment.center,
         child: Text(
           label,
           style: TextStyle(
@@ -252,9 +266,7 @@ class TransactionCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadiusGeometry.circular(15),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: InkWell(
         onTap: () {
           _showTransactionDetails(context);
@@ -380,7 +392,7 @@ class TransactionCard extends StatelessWidget {
         ),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsetsGeometry.all(24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -505,7 +517,9 @@ class TransactionCard extends StatelessWidget {
                       const Divider(height: 24),
                       _buildDetailRow(
                         'Transaction ID',
-                        transactionId.substring(0, 16) + '...',
+                        transactionId.length > 16
+                            ? '${transactionId.substring(0, 16)}...'
+                            : transactionId,
                         Icons.tag,
                       ),
                     ],
@@ -513,27 +527,58 @@ class TransactionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // Close button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                // Close button add Share
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context), 
+                        icon: const Icon(Icons.close),
+                        label: const Text('Close'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey[700],
+                          side: BorderSide(color: Colors.grey[300]!),
+                          padding:  const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          )
+
+                        ),),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context); // Close the modal first
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TransactionReceipt(
+                                transactionId: transactionId,
+                                type: type,
+                                description: description,
+                                category: category,
+                                amount: amount,
+                                timestamp: timestamp,
+                                note: note,
+                                recipient: recipient,
+                                sender: sender,
+                              ),
+                            ),
+                          );
+                        }, 
+                        icon: const Icon(Icons.share, color:Colors.white ,),
+                        label: const Text('Share', style: TextStyle(color: Colors.white),), 
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryBlue,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          )
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Close',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
