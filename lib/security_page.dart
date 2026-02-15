@@ -90,7 +90,9 @@ class _SecurityPageState extends State<SecurityPage> {
             title: 'Change Password',
             subtitle: 'Update your password to ensure\nyour account is secure',
             hasSwitch: false,
-            onTap: () {},
+            onTap: () {
+              Navigator.pushNamed(context, '/change_password');
+            },
           ),
           _buildDivider(),
           _buildSecurityItem(

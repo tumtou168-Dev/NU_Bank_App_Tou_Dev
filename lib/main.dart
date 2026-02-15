@@ -4,6 +4,7 @@ import 'home_screen.dart';
 import 'auth_screen.dart';
 import 'account_page.dart';
 import 'security_page.dart';
+import 'change_password.dart';
 import 'transaction_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -44,6 +45,7 @@ class MyApp extends StatelessWidget {
         '/transactions': (context) => const TransactionPage(),
         '/account': (context) => const AccountPage(),
         '/security': (context) => const SecurityPage(),
+        '/change_password': (context) => const ChangePasswordPage(),
       },
     );
   }
